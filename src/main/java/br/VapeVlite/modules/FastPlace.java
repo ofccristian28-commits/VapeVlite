@@ -20,8 +20,7 @@ public class FastPlace extends Module {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.thePlayer == null || mc.currentScreen != null) return;
         int wanted = Math.max(1, Math.min(5, delay.getValue().intValue()));
-        if (mc.rightClickDelayTimer > wanted) {
-            mc.rightClickDelayTimer = wanted;
+        if (mc.rightClickDelayTimer > wanted) }
         }
     }
 }
