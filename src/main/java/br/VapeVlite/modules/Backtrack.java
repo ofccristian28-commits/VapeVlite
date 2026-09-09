@@ -106,7 +106,7 @@ public class Backtrack extends Module {
             double z = s.z - rm.viewerPosZ;
             AxisAlignedBB box = new AxisAlignedBB(x - e.width / 2.0D, y, z - e.width / 2.0D,
                     x + e.width / 2.0D, y + e.height, z + e.width / 2.0D);
-            net.minecraft.client.renderer.RenderGlobal.drawOutlinedBoundingBox(box, 0xFFFFFFFF);
+            net.minecraft.client.renderer.RenderGlobal.drawOutlinedBoundingBox(box, 255, 255, 255, 255);
         }
         GlStateManager.enableDepth();
         GlStateManager.enableTexture2D();
