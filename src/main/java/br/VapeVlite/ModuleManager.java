@@ -9,7 +9,11 @@ public class ModuleManager {
     private final List<Module> modules = new ArrayList<Module>();
 
     public ModuleManager() {
+        // VapeVlite AutoClicker: randomized 15-20 CPS.
         modules.add(new AutoClicker());
+
+        // CrewX-style independent recreations.
+        modules.add(new CrewXAutoClicker());
         modules.add(new AimAssist());
         modules.add(new JumpReset());
         modules.add(new Backtrack());
@@ -18,11 +22,8 @@ public class ModuleManager {
         modules.add(new NoHitDelay());
         modules.add(new FastPlace());
         modules.add(new AutoTool());
-        modules.get(0).setKeybind(Keyboard.KEY_NONE);
-        modules.get(1).setKeybind(Keyboard.KEY_NONE);
-        modules.get(2).setKeybind(Keyboard.KEY_NONE);
-        modules.get(3).setKeybind(Keyboard.KEY_NONE);
-        modules.get(4).setKeybind(Keyboard.KEY_NONE);
+
+        for (Module m : modules) m.setKeybind(Keyboard.KEY_NONE);
     }
 
     public List<Module> getModules() { return modules; }

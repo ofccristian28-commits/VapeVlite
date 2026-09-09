@@ -1,122 +1,148 @@
 package br.vapevlite;
 
-import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
-import java.io.IOException;
+import net.minecraft.util.ResourceLocation;
 import org.lwjgl.input.Keyboard;
+import java.io.IOException;
+import java.util.List;
 
+/** Compact Vape-inspired GUI using reference GUI PNG assets with independent code. */
 public class VapeGui extends GuiScreen {
+    private static final ResourceLocation COMBAT = new ResourceLocation("vapevlite", "newcombat.png");
+    private static final ResourceLocation BIND = new ResourceLocation("vapevlite", "newbind.png");
+    private static final ResourceLocation CLOSE = new ResourceLocation("vapevlite", "newclose.png");
+
     private Module selected;
     private boolean listening;
+    private int x, y;
+    private final int w = 420, h = 250;
 
-    @Override
-    public void initGui() {
+    @Override public void initGui() {
         selected = VapeVlite.MODULES.getModules().isEmpty() ? null : VapeVlite.MODULES.getModules().get(0);
-        rebuild();
+        x = (width-w)/2; y = (height-h)/2;
     }
 
-    private void rebuild() {
-        buttonList.clear();
-        int left = width / 2 - 150;
-        int top = 40;
-        int i = 0;
-        for (Module m : VapeVlite.MODULES.getModules()) {
-            buttonList.add(new GuiButton(1000 + i, left, top + i * 28, 110, 22, m.getName() + (m.isEnabled() ? "  ON" : "  OFF")));
-            i++;
+    @Override public void drawScreen(int mouseX,int mouseY,float partialTicks) {
+        drawGradientRect(0,0,width,height,0xC0080808,0xD0000000);
+        drawRect(x,y,x+w,y+h,0xF0141418);
+        drawRect(x,y,x+72,y+h,0xF00E0E12);
+        drawRect(x+72,y,x+73,y+h,0xFF28282D);
+        drawRect(x,y,x+w,y+29,0xF019191D);
+
+        mc.getTextureManager().bindTexture(COMBAT);
+        drawModalRectWithCustomSizedTexture(x+25,y+39,0,0,23,24,23,24);
+        drawCenteredString(fontRendererObj,"Combat",x+36,y+66,0xFFFFFFFF);
+        drawString(fontRendererObj,"VapeVlite",x+8,y+8,0xFFFFFFFF);
+
+        mc.getTextureManager().bindTexture(CLOSE);
+        drawModalRectWithCustomSizedTexture(x+w-23,y+5,0,0,18,18,32,32);
+
+        int ly=y+79;
+        for(Module m:VapeVlite.MODULES.getModules()) {
+            boolean hov=mouseX>=x+7&&mouseX<=x+65&&mouseY>=ly-3&&mouseY<=ly+23;
+            if(m==selected) drawRect(x+7,ly-3,x+65,ly+23,0xFF29292F);
+            else if(hov) drawRect(x+7,ly-3,x+65,ly+23,0xFF1E1E23);
+            drawCenteredString(fontRendererObj,shortName(m.getName()),x+36,ly+5,
+                    m.isEnabled()?0xFFFFFFFF:0xFF8C8C94);
+            ly+=26;
         }
-        if (selected != null) {
-            int x = left + 125;
-            buttonList.add(new GuiButton(2000, x, 40, 120, 22, "Toggle"));
-            buttonList.add(new GuiButton(2001, x, 68, 120, 22, "Key: " + keyName(selected.getKeybind())));
-            int y = 98;
-            for (int s = 0; s < selected.getSettings().size(); s++) {
-                Setting<?> setting = selected.getSettings().get(s);
-                if (setting instanceof BooleanSetting) {
-                    buttonList.add(new GuiButton(3000 + s * 2, x, y, 120, 20, ((BooleanSetting)setting).getValue() ? "ON" : "OFF"));
+
+        if(selected!=null) {
+            int cx=x+88;
+            drawString(fontRendererObj,selected.getName(),cx,y+39,0xFFFFFFFF);
+            int tx=x+w-66;
+            drawRect(tx,y+34,tx+50,y+52,selected.isEnabled()?0xFF7038D8:0xFF29292F);
+            drawCenteredString(fontRendererObj,selected.isEnabled()?"ON":"OFF",tx+25,y+40,0xFFFFFFFF);
+
+            mc.getTextureManager().bindTexture(BIND);
+            drawModalRectWithCustomSizedTexture(cx,y+63,0,0,16,16,16,16);
+            drawString(fontRendererObj,"Bind: "+keyName(selected.getKeybind()),cx+21,y+67,0xFFB9B9C1);
+
+            int sy=y+91;
+            for(Setting<?> s:selected.getSettings()) {
+                if(sy>y+h-25) break;
+                drawString(fontRendererObj,s.getId(),cx,sy+5,0xFFE2E2E6);
+                if(s instanceof BooleanSetting) {
+                    boolean on=((BooleanSetting)s).getValue();
+                    drawRect(cx+205,sy,cx+253,sy+18,on?0xFF7038D8:0xFF29292F);
+                    drawCenteredString(fontRendererObj,on?"ON":"OFF",cx+229,sy+5,0xFFFFFFFF);
                 } else {
-                    buttonList.add(new GuiButton(3000 + s * 2, x, y, 55, 20, "-"));
-                    buttonList.add(new GuiButton(3001 + s * 2, x + 65, y, 55, 20, "+"));
+                    NumberSetting n=(NumberSetting)s;
+                    drawRect(cx+154,sy,cx+173,sy+18,0xFF29292F);
+                    drawRect(cx+235,sy,cx+254,sy+18,0xFF29292F);
+                    drawCenteredString(fontRendererObj,"-",cx+163,sy+5,0xFFFFFFFF);
+                    drawCenteredString(fontRendererObj,value(n),cx+213,sy+5,0xFFFFFFFF);
+                    drawCenteredString(fontRendererObj,"+",cx+244,sy+5,0xFFFFFFFF);
                 }
-                y += 48;
+                sy+=26;
             }
-            buttonList.add(new GuiButton(4000, x, height - 38, 120, 22, "Save"));
         }
+        if(listening) {
+            drawRect(x+105,y+h-34,x+w-12,y+h-12,0xFF29292F);
+            drawCenteredString(fontRendererObj,"Press a key...",x+w/2,y+h-28,0xFFFFFFFF);
+        }
+        super.drawScreen(mouseX,mouseY,partialTicks);
     }
 
-    @Override
-    protected void actionPerformed(GuiButton button) throws IOException {
-        if (button.id >= 1000 && button.id < 2000) {
-            int idx = button.id - 1000;
-            if (idx < VapeVlite.MODULES.getModules().size()) selected = VapeVlite.MODULES.getModules().get(idx);
-            rebuild();
-            return;
+    @Override protected void mouseClicked(int mx,int my,int button)throws IOException {
+        if(button!=0){super.mouseClicked(mx,my,button);return;}
+        if(mx>=x+w-28&&my>=y&&my<=y+30){mc.displayGuiScreen(null);return;}
+
+        int ly=y+79;
+        for(Module m:VapeVlite.MODULES.getModules()){
+            if(mx>=x+7&&mx<=x+65&&my>=ly-3&&my<=ly+23){selected=m;return;}
+            ly+=26;
         }
-        if (selected == null) return;
-        if (button.id == 2000) { selected.toggle(); rebuild(); return; }
-        if (button.id == 2001) { listening = true; return; }
-        if (button.id == 4000) { VapeVlite.save(); return; }
-        if (button.id >= 3000 && button.id < 4000) {
-            int index = (button.id - 3000) / 2;
-            if (index >= 0 && index < selected.getSettings().size()) {
-                Setting<?> s = selected.getSettings().get(index);
-                if (s instanceof NumberSetting) {
-                    NumberSetting n = (NumberSetting)s;
-                    if ((button.id & 1) == 0) n.decrement(); else n.increment();
-                } else if (s instanceof BooleanSetting) {
-                    ((BooleanSetting)s).toggle();
+        if(selected==null)return;
+
+        int tx=x+w-66;
+        if(mx>=tx&&mx<=tx+50&&my>=y+34&&my<=y+54){
+            selected.toggle();VapeVlite.save();return;
+        }
+        int cx=x+88;
+        if(mx>=cx&&mx<=cx+150&&my>=y+60&&my<=y+88){listening=true;return;}
+
+        int sy=y+91;
+        for(Setting<?> s:selected.getSettings()){
+            if(sy>y+h-25)break;
+            if(s instanceof BooleanSetting){
+                if(mx>=cx+195&&mx<=cx+260&&my>=sy&&my<=sy+20){
+                    ((BooleanSetting)s).toggle();VapeVlite.save();return;
                 }
-                rebuild();
+            } else {
+                NumberSetting n=(NumberSetting)s;
+                if(my>=sy&&my<=sy+20){
+                    if(mx>=cx+145&&mx<=cx+180)n.decrement();
+                    else if(mx>=cx+228&&mx<=cx+260)n.increment();
+                    else return;
+                    VapeVlite.save();return;
+                }
             }
+            sy+=26;
         }
+        super.mouseClicked(mx,my,button);
     }
 
-    @Override
-    protected void keyTyped(char typedChar, int keyCode) throws IOException {
-        if (listening && selected != null) {
-            selected.setKeybind(keyCode == Keyboard.KEY_ESCAPE ? Keyboard.KEY_NONE : keyCode);
-            listening = false;
-            VapeVlite.save();
-            rebuild();
-            return;
+    @Override protected void keyTyped(char c,int key)throws IOException {
+        if(listening&&selected!=null){
+            selected.setKeybind(key==Keyboard.KEY_ESCAPE?Keyboard.KEY_NONE:key);
+            listening=false;VapeVlite.save();return;
         }
-        if (keyCode == Keyboard.KEY_ESCAPE) { VapeVlite.save(); mc.displayGuiScreen(null); return; }
-        super.keyTyped(typedChar, keyCode);
+        if(key==Keyboard.KEY_ESCAPE){VapeVlite.save();mc.displayGuiScreen(null);return;}
+        super.keyTyped(c,key);
     }
+    @Override public void onGuiClosed(){VapeVlite.save();}
 
-    @Override
-    public void onGuiClosed() { VapeVlite.save(); }
-
-    @Override
-    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        drawDefaultBackground();
-        drawRect(0, 0, width, height, 0xB0101010);
-        int left = width / 2 - 150;
-        drawRect(left - 8, 18, left + 245, height - 15, 0xD91B1B1B);
-        drawString(fontRendererObj, "VapeVlite", left, 24, 0xFFFFFF);
-        drawString(fontRendererObj, "Combat", left + 10, 31, 0x888888);
-        if (selected != null) {
-            int x = left + 125;
-            drawString(fontRendererObj, selected.getName(), x, 28, 0xFFFFFF);
-            int y = 126;
-            for (Setting<?> setting : selected.getSettings()) {
-                String value = value(setting);
-                drawString(fontRendererObj, setting.getId() + ": " + value, x, y, 0xDDDDDD);
-                y += 48;
-            }
-        }
-        if (listening) drawString(fontRendererObj, "Press a key...", width / 2 - 40, height - 60, 0xFFFFFF);
-        super.drawScreen(mouseX, mouseY, partialTicks);
+    private String shortName(String s){
+        if(s.equals("AutoClicker"))return "Clicker";
+        if(s.equals("Auto Tool"))return "AutoTool";
+        if(s.equals("No Jump Delay"))return "NoJump";
+        if(s.equals("No Hit Delay"))return "NoHit";
+        return s.length()>9?s.substring(0,9):s;
     }
-
-    private String value(Setting<?> s) {
-        if (s instanceof NumberSetting) {
-            double d = ((NumberSetting)s).getValue();
-            return d == Math.rint(d) ? Integer.toString((int)d) : String.format(java.util.Locale.US, "%.2f", d);
-        }
-        return String.valueOf(s.getValue());
+    private String value(NumberSetting n){
+        double d=n.getValue();
+        return d==Math.rint(d)?Integer.toString((int)d):String.format(java.util.Locale.US,"%.1f",d);
     }
-
-    private String keyName(int key) {
-        return key <= 0 ? "NONE" : Keyboard.getKeyName(key);
-    }
+    private String keyName(int k){return k<=0?"NONE":Keyboard.getKeyName(k);}
 }
