@@ -38,7 +38,7 @@ public class Backtrack extends Module {
     public Snapshot getSnapshot(EntityLivingBase entity) {
         Deque<Snapshot> q = history.get(entity.getEntityId());
         if (q == null || q.isEmpty()) return null;
-        long wanted = System.currentTimeMillis() - (long)delay.getValue();
+        long wanted = System.currentTimeMillis() - delay.getValue().longValue();
         Snapshot best = q.peekFirst();
         for (Snapshot s : q) {
             if (s.time <= wanted) best = s; else break;

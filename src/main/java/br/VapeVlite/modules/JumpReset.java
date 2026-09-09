@@ -21,7 +21,7 @@ public class JumpReset extends Module {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.thePlayer == null || mc.currentScreen != null) return;
         int hurt = mc.thePlayer.hurtTime;
-        if (hurt > 0 && lastHurt == 0) ticks = (int)delay.getValue();
+        if (hurt > 0 && lastHurt == 0) ticks = delay.getValue().intValue();
         lastHurt = hurt;
         if (ticks > 0) { ticks--; return; }
         if (hurt > 0 && mc.thePlayer.onGround && !mc.gameSettings.keyBindSneak.isKeyDown()) {
