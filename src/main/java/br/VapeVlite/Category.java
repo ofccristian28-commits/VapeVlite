@@ -1,3 +1,5 @@
 package br.vapevlite;
-public enum Category { COMBAT }
 
+public enum Category {
+    COMBAT
+}
