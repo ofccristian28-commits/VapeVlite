@@ -1,18 +1,31 @@
 package br.vapevlite.modules;
 
-import br.vapevlite.*;
+import br.vapevlite.Category;
+import br.vapevlite.Module;
+import br.vapevlite.NumberSetting;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 public class JumpReset extends Module {
-    private int delay=2;
-    public JumpReset(){super("Jump Reset",Category.COMBAT);}
-    public int getDelay(){return delay;}
-    public void setDelay(int v){delay=Math.max(0,Math.min(5,v));}
-    @SubscribeEvent public void tick(TickEvent.ClientTickEvent e){
-        // Configuration hook. The module intentionally does not force movement
-        // every tick; jump-reset input handling belongs in the client input layer.
-        if(!isEnabled()||Minecraft.getMinecraft().thePlayer==null)return;
+    private final NumberSetting delay = new NumberSetting("Delay", 2, 0, 5, 1);
+    private int ticks;
+    private int lastHurt;
+
+    public JumpReset() {
+        super("Jump Reset", Category.COMBAT);
+        addSetting(delay);
+    }
+
+    @Override
+    public void onClientTick() {
+        if (!isEnabled()) return;
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.thePlayer == null || mc.currentScreen != null) return;
+        int hurt = mc.thePlayer.hurtTime;
+        if (hurt > 0 && lastHurt == 0) ticks = (int)delay.getValue();
+        lastHurt = hurt;
+        if (ticks > 0) { ticks--; return; }
+        if (hurt > 0 && mc.thePlayer.onGround && !mc.gameSettings.keyBindSneak.isKeyDown()) {
+            mc.thePlayer.jump();
+        }
     }
 }

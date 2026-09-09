@@ -1,25 +1,33 @@
 package br.vapevlite.modules;
 
-import br.vapevlite.*;
+import br.vapevlite.Category;
+import br.vapevlite.Module;
+import br.vapevlite.NumberSetting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
+import org.lwjgl.input.Mouse;
 
 public class AutoClicker extends Module {
-    private int cps=10;
-    private long last;
-    public AutoClicker(){super("AutoClicker",Category.COMBAT);}
-    public int getCps(){return cps;}
-    public void setCps(int v){cps=Math.max(1,Math.min(20,v));}
-    @SubscribeEvent public void tick(TickEvent.ClientTickEvent e){
-        if(!isEnabled() || Minecraft.getMinecraft().thePlayer==null)return;
-        Minecraft mc=Minecraft.getMinecraft();
-        if(!mc.gameSettings.keyBindAttack.isKeyDown())return;
-        long now=System.currentTimeMillis(), delay=1000L/cps;
-        if(now-last>=delay){
+    private final NumberSetting cps = new NumberSetting("CPS", 10, 1, 20, 1);
+    private long lastClick;
+
+    public AutoClicker() {
+        super("AutoClicker", Category.COMBAT);
+        addSetting(cps);
+    }
+
+    public double getCps() { return cps.getValue(); }
+
+    @Override
+    public void onClientTick() {
+        if (!isEnabled()) return;
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.thePlayer == null || mc.currentScreen != null || !Mouse.isButtonDown(0)) return;
+        long delay = (long)(1000D / cps.getValue());
+        long now = System.currentTimeMillis();
+        if (now - lastClick >= delay) {
             KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
-            last=now;
+            lastClick = now;
         }
     }
 }
