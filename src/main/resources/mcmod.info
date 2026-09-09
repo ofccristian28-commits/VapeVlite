@@ -1,0 +1,12 @@
+[
+  {
+    "modid": "vapevlite",
+    "name": "VapeVlite",
+    "description": "Independent Minecraft 1.8.9 client.",
+    "version": "${version}",
+    "mcversion": "1.8.9",
+    "authorList": ["Cris"],
+    "dependencies": []
+  }
+]
+
