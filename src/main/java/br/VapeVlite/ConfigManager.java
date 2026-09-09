@@ -47,6 +47,7 @@ public class ConfigManager {
 
     private void apply(Setting<?> s, JsonElement e) {
         if (s instanceof NumberSetting) ((NumberSetting)s).setValue(e.getAsDouble());
+        else if (s instanceof BooleanSetting) ((BooleanSetting)s).setValue(e.getAsBoolean());
     }
 
     public void save() {
@@ -59,6 +60,7 @@ public class ConfigManager {
                 JsonObject values = new JsonObject();
                 for (Setting<?> s : m.getSettings()) {
                     if (s instanceof NumberSetting) values.addProperty(s.getId(), ((NumberSetting)s).getValue());
+                    else if (s instanceof BooleanSetting) values.addProperty(s.getId(), ((BooleanSetting)s).getValue());
                 }
                 obj.add("settings", values);
                 root.add(m.getName(), obj);

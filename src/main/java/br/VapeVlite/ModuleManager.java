@@ -14,6 +14,10 @@ public class ModuleManager {
         modules.add(new JumpReset());
         modules.add(new Backtrack());
         modules.add(new Reach());
+        modules.add(new NoJumpDelay());
+        modules.add(new NoHitDelay());
+        modules.add(new FastPlace());
+        modules.add(new AutoTool());
         modules.get(0).setKeybind(Keyboard.KEY_NONE);
         modules.get(1).setKeybind(Keyboard.KEY_NONE);
         modules.get(2).setKeybind(Keyboard.KEY_NONE);

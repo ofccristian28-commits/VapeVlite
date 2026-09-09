@@ -31,8 +31,12 @@ public class VapeGui extends GuiScreen {
             int y = 98;
             for (int s = 0; s < selected.getSettings().size(); s++) {
                 Setting<?> setting = selected.getSettings().get(s);
-                buttonList.add(new GuiButton(3000 + s * 2, x, y, 55, 20, "-"));
-                buttonList.add(new GuiButton(3001 + s * 2, x + 65, y, 55, 20, "+"));
+                if (setting instanceof BooleanSetting) {
+                    buttonList.add(new GuiButton(3000 + s * 2, x, y, 120, 20, ((BooleanSetting)setting).getValue() ? "ON" : "OFF"));
+                } else {
+                    buttonList.add(new GuiButton(3000 + s * 2, x, y, 55, 20, "-"));
+                    buttonList.add(new GuiButton(3001 + s * 2, x + 65, y, 55, 20, "+"));
+                }
                 y += 48;
             }
             buttonList.add(new GuiButton(4000, x, height - 38, 120, 22, "Save"));
@@ -58,6 +62,8 @@ public class VapeGui extends GuiScreen {
                 if (s instanceof NumberSetting) {
                     NumberSetting n = (NumberSetting)s;
                     if ((button.id & 1) == 0) n.decrement(); else n.increment();
+                } else if (s instanceof BooleanSetting) {
+                    ((BooleanSetting)s).toggle();
                 }
                 rebuild();
             }
