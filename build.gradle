@@ -9,7 +9,7 @@ buildscript {
 }
 apply plugin: 'net.minecraftforge.gradle.forge'
 
-version = "1.0"
+version = "1.0.0"
 group = "br.vapevlite"
 archivesBaseName = "VapeVlite"
 
@@ -28,5 +28,7 @@ processResources {
         include 'mcmod.info'
         expand 'version': project.version, 'mcversion': "1.8.9"
     }
-    from(sourceSets.main.resources.srcDirs) { exclude 'mcmod.info' }
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
+    }
 }
