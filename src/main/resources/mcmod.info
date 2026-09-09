@@ -2,11 +2,10 @@
   {
     "modid": "vapevlite",
     "name": "VapeVlite",
-    "description": "Independent Minecraft 1.8.9 client.",
+    "description": "Independent Minecraft 1.8.9 client with a compact combat GUI.",
     "version": "${version}",
-    "mcversion": "1.8.9",
+    "mcversion": "${mcversion}",
     "authorList": ["Cris"],
     "dependencies": []
   }
 ]
-
