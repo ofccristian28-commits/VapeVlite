@@ -13,7 +13,7 @@ public class JumpReset extends Module {
     private int lastHurt;
 
     public JumpReset() {
-        super("Jump Reset", Category.COMBAT);
+        super("Jump Reset", Category.MOVEMENT);
         addSetting(delay);
         addSetting(chance);
     }
