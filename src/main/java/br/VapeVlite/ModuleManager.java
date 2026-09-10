@@ -18,8 +18,11 @@ public class ModuleManager {
         modules.add(new NoHitDelay());
         modules.add(new FastPlace());
         modules.add(new AutoTool());
-
-        for (Module m : modules) m.setKeybind(Keyboard.KEY_NONE);
+        modules.get(0).setKeybind(Keyboard.KEY_NONE);
+        modules.get(1).setKeybind(Keyboard.KEY_NONE);
+        modules.get(2).setKeybind(Keyboard.KEY_NONE);
+        modules.get(3).setKeybind(Keyboard.KEY_NONE);
+        modules.get(4).setKeybind(Keyboard.KEY_NONE);
     }
 
     public List<Module> getModules() { return modules; }
