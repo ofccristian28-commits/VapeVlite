@@ -6,6 +6,7 @@ import br.vapevlite.Module;
 import br.vapevlite.NumberSetting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.entity.Entity;
 import net.minecraft.item.ItemAxe;
 import net.minecraft.item.ItemSword;
 import net.minecraft.util.MovingObjectPosition;
@@ -16,9 +17,9 @@ import java.lang.reflect.Method;
 import java.util.Random;
 
 /**
- * AutoClicker for the VapeVlite module system.
- * The timing/conditions are independently reimplemented from the behavior
- * observed in Elixe 8.0, using reflection for Minecraft 1.8.9 internals.
+ * Elixe-8-style AutoClicker, independently implemented for the VapeVlite
+ * module system. It keeps the same settings and timing/conditions while
+ * avoiding a dependency on Elixe's mixins.
  */
 public class AutoClicker extends Module {
     private final NumberSetting cpsMin = new NumberSetting("CPS Min", 8.0, 1.0, 20.0, 1.0);
@@ -30,7 +31,6 @@ public class AutoClicker extends Module {
 
     private final Random random = new Random();
     private long nextClickAt;
-
     private Field leftClickCounterField;
     private Method clickMouseMethod;
 
@@ -42,8 +42,6 @@ public class AutoClicker extends Module {
         addSetting(requireWeapon);
         addSetting(breakBlocks);
         addSetting(workOnGui);
-        resolveMinecraftMethods();
-        normalizeCps();
         resetTimer();
     }
 
@@ -61,12 +59,11 @@ public class AutoClicker extends Module {
     @Override
     public void onClientTick() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (!isEnabled() || mc.thePlayer == null || mc.theWorld == null) return;
+        if (!isEnabled() || mc == null || mc.thePlayer == null || mc.theWorld == null) return;
 
-        boolean gui = mc.currentScreen != null;
-        if (gui && !workOnGui.getValue()) return;
+        if (mc.currentScreen != null && !workOnGui.getValue()) return;
 
-        if (requireHold.getValue() && !isAttackButtonPhysicallyDown(mc)) {
+        if (requireHold.getValue() && !isAttackButtonDown(mc)) {
             resetTimer();
             return;
         }
@@ -83,17 +80,22 @@ public class AutoClicker extends Module {
         long now = System.nanoTime();
         if (now < nextClickAt) return;
 
-        performClick(mc);
+        click(mc);
+        reportSyntheticClick(mc);
         scheduleNextClick(now);
     }
 
-    private boolean isAttackButtonPhysicallyDown(Minecraft mc) {
-        // Minecraft's default attack key is the left mouse button. Using the
-        // actual mouse state avoids the KeyBinding state getting stuck.
-        if (mc.gameSettings.keyBindAttack.getKeyCode() < 0) {
-            return Mouse.isButtonDown(0);
+    private boolean isAttackButtonDown(Minecraft mc) {
+        try {
+            int code = mc.gameSettings.keyBindAttack.getKeyCode();
+            if (code < 0) {
+                int mouseButton = code + 100;
+                return mouseButton >= 0 && Mouse.isButtonDown(mouseButton);
+            }
+            return mc.gameSettings.keyBindAttack.isKeyDown();
+        } catch (Throwable ignored) {
+            return false;
         }
-        return Mouse.isButtonDown(0) || mc.gameSettings.keyBindAttack.isKeyDown();
     }
 
     private boolean isHoldingSwordOrAxe(Minecraft mc) {
@@ -102,10 +104,16 @@ public class AutoClicker extends Module {
                 || mc.thePlayer.getHeldItem().getItem() instanceof ItemAxe;
     }
 
-    private void performClick(Minecraft mc) {
+    /** Performs the actual Minecraft left-click, not merely a key press. */
+    private void click(Minecraft mc) {
         try {
-            if (leftClickCounterField == null || clickMouseMethod == null) {
-                resolveMinecraftMethods();
+            if (leftClickCounterField == null) {
+                leftClickCounterField = findField(Minecraft.class,
+                        "leftClickCounter", "field_71429_W");
+            }
+            if (clickMouseMethod == null) {
+                clickMouseMethod = findMethod(Minecraft.class,
+                        "clickMouse", "func_147116_af");
             }
 
             if (leftClickCounterField != null) {
@@ -119,17 +127,47 @@ public class AutoClicker extends Module {
                 return;
             }
         } catch (Throwable ignored) {
-            // Fall through to the vanilla key press below.
+            // Use the direct controller fallback below.
         }
 
-        KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
+        // Fallback for environments where reflection cannot invoke clickMouse.
+        try {
+            MovingObjectPosition hit = mc.objectMouseOver;
+            if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
+                Entity entity = hit.entityHit;
+                if (entity != null) {
+                    mc.playerController.attackEntity(mc.thePlayer, entity);
+                    mc.thePlayer.swingItem();
+                    return;
+                }
+            }
+
+            if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK
+                    && breakBlocks.getValue()) {
+                mc.playerController.clickBlock(hit.getBlockPos(), hit.sideHit);
+                mc.thePlayer.swingItem();
+                return;
+            }
+
+            int key = mc.gameSettings.keyBindAttack.getKeyCode();
+            KeyBinding.setKeyBindState(key, true);
+            KeyBinding.onTick(key);
+            KeyBinding.setKeyBindState(key, false);
+        } catch (Throwable ignored) {
+            // Never crash Minecraft because of the AutoClicker.
+        }
     }
 
-    private void resolveMinecraftMethods() {
-        leftClickCounterField = findField(Minecraft.class,
-                "leftClickCounter", "field_71429_W");
-        clickMouseMethod = findMethod(Minecraft.class,
-                "clickMouse", "func_147116_af");
+    /** Keeps CPS counters/listeners in sync with the synthetic click. */
+    private void reportSyntheticClick(Minecraft mc) {
+        try {
+            KeyBinding attack = mc.gameSettings.keyBindAttack;
+            int key = attack.getKeyCode();
+            KeyBinding.setKeyBindState(key, false);
+            KeyBinding.onTick(key);
+            KeyBinding.setKeyBindState(key, false);
+        } catch (Throwable ignored) {
+        }
     }
 
     private void resetTimer() {
@@ -138,15 +176,13 @@ public class AutoClicker extends Module {
 
     private void scheduleNextClick(long now) {
         normalizeCps();
-
         int min = cpsMin.getValue().intValue();
         int max = cpsMax.getValue().intValue();
         int cps = min + (max > min ? random.nextInt(max - min + 1) : 0);
 
         long base = 1000000000L / Math.max(1, cps);
         long jitterUnit = base / 12L;
-        long jitter = jitterUnit == 0L
-                ? 0L
+        long jitter = jitterUnit == 0L ? 0L
                 : (long) (random.nextDouble() * (jitterUnit * 2L + 1L)) - jitterUnit;
 
         nextClickAt = now + Math.max(25000000L, base + jitter);
@@ -155,13 +191,11 @@ public class AutoClicker extends Module {
     private void normalizeCps() {
         double min = clamp(cpsMin.getValue(), 1.0, 20.0);
         double max = clamp(cpsMax.getValue(), 1.0, 20.0);
-
         if (min > max) {
-            double temp = min;
+            double t = min;
             min = max;
-            max = temp;
+            max = t;
         }
-
         cpsMin.setValue(min);
         cpsMax.setValue(max);
     }
