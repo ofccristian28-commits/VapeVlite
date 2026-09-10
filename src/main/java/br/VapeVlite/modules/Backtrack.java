@@ -66,16 +66,16 @@ public class Backtrack extends Module {
             }
         }
 
-        if (manualTarget != null && !manualTarget.isDead && System.currentTimeMillis() - manualTargetTime <= manualWindow.getValue()) {
+        if (manualTarget != null && !manualTarget.isDead && System.currentTimeMillis() - manualTargetTime <= manualWindow.getValue().longValue()) {
             int min = (int)Math.min(minDelay.getValue(), maxDelay.getValue());
             int max = (int)Math.max(minDelay.getValue(), maxDelay.getValue());
-            boolean chanceOk = RANDOM.nextInt(100) < (int)chance.getValue();
-            boolean rangeOk = mc.thePlayer.getDistanceToEntity(manualTarget) <= range.getValue();
-            boolean hurtPause = pauseHurt.getValue() && manualTarget.hurtTime >= hurtThreshold.getValue();
+            boolean chanceOk = RANDOM.nextInt(100) < chance.getValue().intValue();
+            boolean rangeOk = mc.thePlayer.getDistanceToEntity(manualTarget) <= range.getValue().doubleValue();
+            boolean hurtPause = pauseHurt.getValue() && manualTarget.hurtTime >= hurtThreshold.getValue().intValue();
             if (!active && chanceOk && rangeOk && !hurtPause && System.currentTimeMillis() >= nextAllowedTime) {
                 activeSnapshot = oldestUseful(manualTarget, min, max);
                 active = activeSnapshot != null;
-                if (active) nextAllowedTime = System.currentTimeMillis() + (long)nextDelay.getValue();
+                if (active) nextAllowedTime = System.currentTimeMillis() + nextDelay.getValue().longValue();
             }
         } else if (manualTarget != null) {
             manualTarget = null;

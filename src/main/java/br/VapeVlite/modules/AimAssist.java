@@ -87,16 +87,16 @@ public class AimAssist extends Module {
         float pitchDiff = MathHelper.wrapAngleTo180_float(rotations[1] - mc.thePlayer.rotationPitch);
         if (Math.abs(yawDiff) > aimFov.getValue()) return;
 
-        float randomYawOffset = randomYaw.getValue() ? signedRandom((float) randomSpeed.getValue()) : 0F;
-        float randomPitchOffset = randomPitch.getValue() ? signedRandom((float) randomSpeed.getValue()) : 0F;
+        float randomYawOffset = randomYaw.getValue() ? signedRandom(randomSpeed.getValue().floatValue()) : 0F;
+        float randomPitchOffset = randomPitch.getValue() ? signedRandom(randomSpeed.getValue().floatValue()) : 0F;
         if (randomDecrease.getValue() && Math.abs(yawDiff) >= randomDecreaseFov.getValue()) {
-            randomYawOffset *= Math.abs(yawDiff) / (float) randomDecreaseFov.getValue();
-            randomPitchOffset *= Math.abs(yawDiff) / (float) randomDecreaseFov.getValue();
+            randomYawOffset *= Math.abs(yawDiff) / randomDecreaseFov.getValue().floatValue();
+            randomPitchOffset *= Math.abs(yawDiff) / randomDecreaseFov.getValue().floatValue();
         }
 
         float yawStep = yaw.getValue() ? clamp(yawDiff) : 0F;
         float pitchStep = pitch.getValue() ? clamp(pitchDiff) : 0F;
-        float factor = (float) speedFactor.getValue();
+        float factor = speedFactor.getValue().floatValue();
         yawStep = (yawStep + randomYawOffset) * factor;
         pitchStep = (pitchStep + randomPitchOffset) * factor;
 
@@ -110,7 +110,7 @@ public class AimAssist extends Module {
 
     private EntityLivingBase findTarget(Minecraft mc) {
         EntityLivingBase best = null;
-        float bestDistance = (float) aimDistance.getValue();
+        float bestDistance = aimDistance.getValue().floatValue();
         float bestAngle = Float.MAX_VALUE;
         for (Object o : mc.theWorld.loadedEntityList) {
             if (!(o instanceof EntityLivingBase)) continue;

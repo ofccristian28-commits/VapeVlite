@@ -21,7 +21,8 @@ public class FpsOptimizer extends Module {
     private final NumberSetting renderDistance = new NumberSetting("Render Distance", 4, 2, 12, 1);
 
     private boolean saved;
-    private boolean oldFancy, oldAo, oldShadows;
+    private boolean oldFancy, oldShadows;
+    private int oldAo;
     private int oldParticles, oldDistance;
     private Object oldClouds;
     private Object oldPortal;
@@ -67,10 +68,10 @@ public class FpsOptimizer extends Module {
         }
         if (lowGraphics.getValue()) {
             g.fancyGraphics = false;
-            g.ambientOcclusion = false;
+            g.ambientOcclusion = 0;
         }
         if (noParticles.getValue()) g.particleSetting = 2;
-        if (lowViewDistance.getValue()) g.renderDistanceChunks = (int)renderDistance.getValue();
+        if (lowViewDistance.getValue()) g.renderDistanceChunks = renderDistance.getValue().intValue();
         if (noShadows.getValue()) setField(g, "entityShadows", "field_74347_j", false);
         if (noClouds.getValue()) setField(g, "clouds", "field_74335_Z", 0);
         if (noPortals.getValue() && mc.thePlayer != null) setField(mc.thePlayer, "timeInPortal", "field_71086_bY", 0F);
