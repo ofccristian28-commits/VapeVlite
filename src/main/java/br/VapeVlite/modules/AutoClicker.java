@@ -6,29 +6,51 @@ import br.vapevlite.Module;
 import br.vapevlite.NumberSetting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.item.ItemAxe;
+import net.minecraft.item.ItemSword;
+import net.minecraft.util.MovingObjectPosition;
 import org.lwjgl.input.Mouse;
 
-import java.util.concurrent.ThreadLocalRandom;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Random;
 
+/**
+ * AutoClicker for the VapeVlite module system.
+ * The timing/conditions are independently reimplemented from the behavior
+ * observed in Elixe 8.0, using reflection for Minecraft 1.8.9 internals.
+ */
 public class AutoClicker extends Module {
+    private final NumberSetting cpsMin = new NumberSetting("CPS Min", 8.0, 1.0, 20.0, 1.0);
+    private final NumberSetting cpsMax = new NumberSetting("CPS Max", 12.0, 1.0, 20.0, 1.0);
+    private final BooleanSetting requireHold = new BooleanSetting("Require Hold", true);
+    private final BooleanSetting requireWeapon = new BooleanSetting("Require Weapon", false);
+    private final BooleanSetting breakBlocks = new BooleanSetting("Break Blocks", false);
+    private final BooleanSetting workOnGui = new BooleanSetting("Work On GUI", false);
 
-    private final NumberSetting cpsMin =
-            new NumberSetting("Min CPS", 15.0, 1.0, 20.0, 1.0);
+    private final Random random = new Random();
+    private long nextClickAt;
 
-    private final NumberSetting cpsMax =
-            new NumberSetting("Max CPS", 20.0, 1.0, 20.0, 1.0);
-
-    private final BooleanSetting randomize =
-            new BooleanSetting("Randomize", true);
-
-    private long nextClickAt = 0L;
+    private Field leftClickCounterField;
+    private Method clickMouseMethod;
 
     public AutoClicker() {
         super("AutoClicker", Category.COMBAT);
-
         addSetting(cpsMin);
         addSetting(cpsMax);
-        addSetting(randomize);
+        addSetting(requireHold);
+        addSetting(requireWeapon);
+        addSetting(breakBlocks);
+        addSetting(workOnGui);
+        resolveMinecraftMethods();
+        normalizeCps();
+        resetTimer();
+    }
+
+    @Override
+    protected void onEnable() {
+        normalizeCps();
+        resetTimer();
     }
 
     @Override
@@ -39,69 +61,132 @@ public class AutoClicker extends Module {
     @Override
     public void onClientTick() {
         Minecraft mc = Minecraft.getMinecraft();
+        if (!isEnabled() || mc.thePlayer == null || mc.theWorld == null) return;
 
-        if (!isEnabled()) {
+        boolean gui = mc.currentScreen != null;
+        if (gui && !workOnGui.getValue()) return;
+
+        if (requireHold.getValue() && !isAttackButtonPhysicallyDown(mc)) {
+            resetTimer();
             return;
         }
 
-        if (mc.thePlayer == null || mc.theWorld == null) {
+        if (requireWeapon.getValue() && !isHoldingSwordOrAxe(mc)) return;
+
+        if (!breakBlocks.getValue()
+                && mc.objectMouseOver != null
+                && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+            resetTimer();
             return;
         }
 
-        if (mc.currentScreen != null) {
-            return;
-        }
+        long now = System.nanoTime();
+        if (now < nextClickAt) return;
 
-        // Só funciona enquanto o botão esquerdo real estiver pressionado.
-        if (!Mouse.isButtonDown(0)) {
-            nextClickAt = 0L;
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-
-        // Começa a clicar imediatamente.
-        if (nextClickAt == 0L) {
-            nextClickAt = now;
-        }
-
-        if (now >= nextClickAt) {
-            int keyCode = mc.gameSettings.keyBindAttack.getKeyCode();
-
-            KeyBinding.onTick(keyCode);
-
-            nextClickAt = now + getNextDelay();
-        }
+        performClick(mc);
+        scheduleNextClick(now);
     }
 
-    private long getNextDelay() {
-        int min = (int) Math.round(
-                Math.min(cpsMin.getValue(), cpsMax.getValue())
-        );
-
-        int max = (int) Math.round(
-                Math.max(cpsMin.getValue(), cpsMax.getValue())
-        );
-
-        min = clamp(min, 1, 20);
-        max = clamp(max, min, 20);
-
-        double cps;
-
-        if (!randomize.getValue() || min == max) {
-            cps = min;
-        } else {
-            cps = ThreadLocalRandom.current()
-                    .nextDouble(min, max + 1.0D);
+    private boolean isAttackButtonPhysicallyDown(Minecraft mc) {
+        // Minecraft's default attack key is the left mouse button. Using the
+        // actual mouse state avoids the KeyBinding state getting stuck.
+        if (mc.gameSettings.keyBindAttack.getKeyCode() < 0) {
+            return Mouse.isButtonDown(0);
         }
-
-        return Math.max(
-                1L,
-                Math.round(1000.0D / cps)
-        );
+        return Mouse.isButtonDown(0) || mc.gameSettings.keyBindAttack.isKeyDown();
     }
 
-    private int clamp(int value, int min, int max) {
+    private boolean isHoldingSwordOrAxe(Minecraft mc) {
+        if (mc.thePlayer.getHeldItem() == null) return false;
+        return mc.thePlayer.getHeldItem().getItem() instanceof ItemSword
+                || mc.thePlayer.getHeldItem().getItem() instanceof ItemAxe;
+    }
+
+    private void performClick(Minecraft mc) {
+        try {
+            if (leftClickCounterField == null || clickMouseMethod == null) {
+                resolveMinecraftMethods();
+            }
+
+            if (leftClickCounterField != null) {
+                leftClickCounterField.setAccessible(true);
+                leftClickCounterField.setInt(mc, 0);
+            }
+
+            if (clickMouseMethod != null) {
+                clickMouseMethod.setAccessible(true);
+                clickMouseMethod.invoke(mc);
+                return;
+            }
+        } catch (Throwable ignored) {
+            // Fall through to the vanilla key press below.
+        }
+
+        KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
+    }
+
+    private void resolveMinecraftMethods() {
+        leftClickCounterField = findField(Minecraft.class,
+                "leftClickCounter", "field_71429_W");
+        clickMouseMethod = findMethod(Minecraft.class,
+                "clickMouse", "func_147116_af");
+    }
+
+    private void resetTimer() {
+        nextClickAt = System.nanoTime();
+    }
+
+    private void scheduleNextClick(long now) {
+        normalizeCps();
+
+        int min = cpsMin.getValue().intValue();
+        int max = cpsMax.getValue().intValue();
+        int cps = min + (max > min ? random.nextInt(max - min + 1) : 0);
+
+        long base = 1000000000L / Math.max(1, cps);
+        long jitterUnit = base / 12L;
+        long jitter = jitterUnit == 0L
+                ? 0L
+                : (long) (random.nextDouble() * (jitterUnit * 2L + 1L)) - jitterUnit;
+
+        nextClickAt = now + Math.max(25000000L, base + jitter);
+    }
+
+    private void normalizeCps() {
+        double min = clamp(cpsMin.getValue(), 1.0, 20.0);
+        double max = clamp(cpsMax.getValue(), 1.0, 20.0);
+
+        if (min > max) {
+            double temp = min;
+            min = max;
+            max = temp;
+        }
+
+        cpsMin.setValue(min);
+        cpsMax.setValue(max);
+    }
+
+    private static double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private static Field findField(Class<?> type, String... names) {
+        for (String name : names) {
+            try {
+                return type.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static Method findMethod(Class<?> type, String... names) {
+        for (String name : names) {
+            try {
+                return type.getDeclaredMethod(name);
+            } catch (NoSuchMethodException ignored) {
+            }
+        }
+        return null;
     }
 }
