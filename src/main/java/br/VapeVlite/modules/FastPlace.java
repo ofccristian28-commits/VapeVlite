@@ -2,26 +2,53 @@ package br.vapevlite.modules;
 
 import br.vapevlite.Category;
 import br.vapevlite.Module;
-import br.vapevlite.NumberSetting;
+import br.vapevlite.settings.NumberSetting;
 import net.minecraft.client.Minecraft;
 
-/** Reduces the vanilla right-click placement delay (in ticks). */
+import java.lang.reflect.Field;
+
 public class FastPlace extends Module {
-    private final NumberSetting delay = new NumberSetting("Delay", 1.0, 1.0, 5.0, 1.0);
+
+    private final Minecraft mc = Minecraft.getMinecraft();
+
+    private final NumberSetting delay =
+            new NumberSetting("Delay", 1.0, 1.0, 5.0, 1.0);
+
+    private Field rightClickDelayTimer;
 
     public FastPlace() {
-        super("FastPlace", Category.COMBAT);
+        super("FastPlace", Category.PLAYER);
         addSetting(delay);
+
+        try {
+            rightClickDelayTimer =
+                    Minecraft.class.getDeclaredField("rightClickDelayTimer");
+            rightClickDelayTimer.setAccessible(true);
+        } catch (Exception e) {
+            rightClickDelayTimer = null;
+        }
     }
 
     @Override
     public void onClientTick() {
-        if (!isEnabled()) return;
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc.thePlayer == null || mc.currentScreen != null) return;
-        int wanted = Math.max(1, Math.min(5, delay.getValue().intValue()));
-        if (mc.rightClickDelayTimer > wanted) {
-            mc.rightClickDelayTimer = wanted;
+        if (!isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
+            return;
+        }
+
+        if (rightClickDelayTimer == null) {
+            return;
+        }
+
+        try {
+            int wanted = delay.getValue().intValue();
+
+            int current = rightClickDelayTimer.getInt(mc);
+
+            if (current > wanted) {
+                rightClickDelayTimer.setInt(mc, wanted);
+            }
+
+        } catch (Exception ignored) {
         }
     }
 }
