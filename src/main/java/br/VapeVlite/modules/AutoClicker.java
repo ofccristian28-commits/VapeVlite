@@ -6,132 +6,102 @@ import br.vapevlite.Module;
 import br.vapevlite.NumberSetting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.util.MovingObjectPosition;
-import net.minecraft.item.ItemAxe;
-import net.minecraft.item.ItemSword;
 import org.lwjgl.input.Mouse;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.Random;
 
-/** Elixe-style autoclicker reimplemented for the VapeVlite module system. */
+import java.util.concurrent.ThreadLocalRandom;
+
 public class AutoClicker extends Module {
-    private final NumberSetting cpsMin = new NumberSetting("CPS Min", 8, 1, 20, 1);
-    private final NumberSetting cpsMax = new NumberSetting("CPS Max", 12, 1, 20, 1);
-    private final BooleanSetting requireHold = new BooleanSetting("Require Hold", true);
-    private final BooleanSetting requireWeapon = new BooleanSetting("Require Weapon", false);
-    private final BooleanSetting breakBlocks = new BooleanSetting("Break Blocks", false);
-    private final BooleanSetting workOnGui = new BooleanSetting("Work On GUI", false);
 
-    private final Random random = new Random();
-    private long nextClickAt;
+    private final NumberSetting cpsMin =
+            new NumberSetting("Min CPS", 15.0, 1.0, 20.0, 1.0);
+
+    private final NumberSetting cpsMax =
+            new NumberSetting("Max CPS", 20.0, 1.0, 20.0, 1.0);
+
+    private final BooleanSetting randomize =
+            new BooleanSetting("Randomize", true);
+
+    private long nextClickAt = 0L;
 
     public AutoClicker() {
         super("AutoClicker", Category.COMBAT);
+
         addSetting(cpsMin);
         addSetting(cpsMax);
-        addSetting(requireHold);
-        addSetting(requireWeapon);
-        addSetting(breakBlocks);
-        addSetting(workOnGui);
-        normalizeCps();
-        resetTimer();
+        addSetting(randomize);
     }
 
     @Override
-    protected void onEnable() { resetTimer(); }
-
-    @Override
-    protected void onDisable() { nextClickAt = 0L; }
+    protected void onDisable() {
+        nextClickAt = 0L;
+    }
 
     @Override
     public void onClientTick() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (!isEnabled() || mc.thePlayer == null || mc.theWorld == null) return;
 
-        boolean gui = mc.currentScreen != null;
-        if (gui && !workOnGui.getValue()) return;
-        if (requireHold.getValue() && !Mouse.isButtonDown(0)) {
-            resetTimer();
-            return;
-        }
-        if (requireWeapon.getValue() && !isHoldingSwordOrAxe(mc)) return;
-
-        if (!breakBlocks.getValue() && mc.objectMouseOver != null
-                && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
-            resetTimer();
+        if (!isEnabled()) {
             return;
         }
 
-        long now = System.nanoTime();
-        if (now < nextClickAt) return;
-
-        performClick(mc);
-        scheduleNextClick(now);
-    }
-
-    private boolean isHoldingSwordOrAxe(Minecraft mc) {
-        if (mc.thePlayer.getHeldItem() == null) return false;
-        return mc.thePlayer.getHeldItem().getItem() instanceof ItemSword
-                || mc.thePlayer.getHeldItem().getItem() instanceof ItemAxe;
-    }
-
-    private void performClick(Minecraft mc) {
-        try {
-            Field counter = findField(Minecraft.class, "leftClickCounter", "field_71429_W");
-            if (counter != null) { counter.setAccessible(true); counter.setInt(mc, 0); }
-
-            Method click = findMethod(Minecraft.class, "clickMouse", "func_147116_af");
-            if (click != null) {
-                click.setAccessible(true);
-                click.invoke(mc);
-                return;
-            }
-        } catch (Throwable ignored) { }
-
-        // Fallback for mappings/runtime variants.
-        KeyBinding.onTick(mc.gameSettings.keyBindAttack.getKeyCode());
-    }
-
-    private void resetTimer() { nextClickAt = System.nanoTime(); }
-
-    private void scheduleNextClick(long now) {
-        normalizeCps();
-        int cps = cpsMin.getValue().intValue();
-        if (cpsMax.getValue().intValue() > cps) {
-            cps += random.nextInt(cpsMax.getValue().intValue() - cps + 1);
+        if (mc.thePlayer == null || mc.theWorld == null) {
+            return;
         }
-        long base = 1000000000L / Math.max(1, cps);
-        long jitterUnit = base / 12L;
-        long jitter = jitterUnit == 0 ? 0L : (long)(random.nextDouble() * (jitterUnit * 2L + 1L)) - jitterUnit;
-        nextClickAt = now + Math.max(25000000L, base + jitter);
-    }
 
-    private void normalizeCps() {
-        cpsMin.setValue(clamp((int)Math.round(cpsMin.getValue()), 1, 20));
-        cpsMax.setValue(clamp((int)Math.round(cpsMax.getValue()), 1, 20));
-        if (cpsMin.getValue() > cpsMax.getValue()) {
-            double t = cpsMin.getValue();
-            cpsMin.setValue(cpsMax.getValue());
-            cpsMax.setValue(t);
+        if (mc.currentScreen != null) {
+            return;
+        }
+
+        // Só funciona enquanto o botão esquerdo real estiver pressionado.
+        if (!Mouse.isButtonDown(0)) {
+            nextClickAt = 0L;
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+
+        // Começa a clicar imediatamente.
+        if (nextClickAt == 0L) {
+            nextClickAt = now;
+        }
+
+        if (now >= nextClickAt) {
+            int keyCode = mc.gameSettings.keyBindAttack.getKeyCode();
+
+            KeyBinding.onTick(keyCode);
+
+            nextClickAt = now + getNextDelay();
         }
     }
 
-    private static int clamp(int value, int min, int max) {
+    private long getNextDelay() {
+        int min = (int) Math.round(
+                Math.min(cpsMin.getValue(), cpsMax.getValue())
+        );
+
+        int max = (int) Math.round(
+                Math.max(cpsMin.getValue(), cpsMax.getValue())
+        );
+
+        min = clamp(min, 1, 20);
+        max = clamp(max, min, 20);
+
+        double cps;
+
+        if (!randomize.getValue() || min == max) {
+            cps = min;
+        } else {
+            cps = ThreadLocalRandom.current()
+                    .nextDouble(min, max + 1.0D);
+        }
+
+        return Math.max(
+                1L,
+                Math.round(1000.0D / cps)
+        );
+    }
+
+    private int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
-    }
-
-    private static Field findField(Class<?> type, String... names) {
-        for (String name : names) {
-            try { return type.getDeclaredField(name); } catch (NoSuchFieldException ignored) { }
-        }
-        return null;
-    }
-
-    private static Method findMethod(Class<?> type, String... names) {
-        for (String name : names) {
-            try { return type.getDeclaredMethod(name); } catch (NoSuchMethodException ignored) { }
-        }
-        return null;
     }
 }
