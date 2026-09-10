@@ -29,7 +29,12 @@ public abstract class Module {
     public void setEnabled(boolean value) {
         if (enabled == value) return;
         enabled = value;
-        if (value) onEnable(); else onDisable();
+        if (value) {
+            onEnable();
+        } else {
+            onDisable();
+            VapeVlite.notifyModuleDisabled(name);
+        }
     }
 
     protected void onEnable() {}
