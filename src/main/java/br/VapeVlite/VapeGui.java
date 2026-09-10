@@ -1,104 +1,164 @@
 package br.vapevlite;
 
-import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
+
 import java.io.IOException;
 import java.util.Locale;
 
-/** Compact dark/gold click GUI inspired by the Elixe 8 layout. */
+/**
+ * Compact Elixe-8-inspired ClickGUI, independently recreated from the
+ * observed 400x220 layout and interaction model.
+ */
 public class VapeGui extends GuiScreen {
+    private static final int WIDTH = 400;
+    private static final int HEIGHT = 220;
+    private static final int SIDEBAR = 92;
+    private static final int MODULE_PANE = 120;
+    private static final int CONTENT_TOP = 28;
+    private static final int ACCENT = 0xFFDAA520;
+    private static final int BG = 0xFF0E0E12;
+    private static final int PANEL = 0xFF16161B;
+    private static final int BAR = 0xFF1B1B21;
+    private static final int HOVER = 0xFF26262E;
+    private static final int TEXT = 0xFFDBDBDB;
+    private static final int DIM = 0xFF73737A;
+
     private Module selected;
     private boolean listening;
-    private int scroll;
-    private int moduleTop;
-    private int panelLeft;
-    private int panelTop;
+    private int moduleScroll;
+    private int optionsScroll;
 
-    private static final int GOLD = 0xFFD9A520;
-    private static final int BG = 0xF20F1012;
-    private static final int PANEL = 0xF2191A1E;
-    private static final int CARD = 0xFF24262B;
-    private static final int CARD_ON = 0xFF3A2E16;
+    private int guiX;
+    private int guiY;
 
     @Override
     public void initGui() {
-        selected = VapeVlite.MODULES.getModules().isEmpty() ? null : VapeVlite.MODULES.getModules().get(0);
-        scroll = 0;
-        rebuild();
+        guiX = (width - WIDTH) / 2;
+        guiY = (height - HEIGHT) / 2;
+        selected = VapeVlite.MODULES.getModules().isEmpty()
+                ? null : VapeVlite.MODULES.getModules().get(0);
+        moduleScroll = 0;
+        optionsScroll = 0;
     }
 
-    private void rebuild() {
-        buttonList.clear();
-        int w = 720, h = 430;
-        panelLeft = width / 2 - w / 2;
-        panelTop = height / 2 - h / 2;
-        moduleTop = panelTop + 72 - scroll;
+    @Override
+    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        drawDefaultBackground();
 
-        int sideW = 145;
-        int listX = panelLeft + sideW + 14;
-        int listW = 210;
-        int optX = listX + listW + 14;
-        int optW = 300;
+        // Main 400x220 Elixe-style frame.
+        drawRect(guiX, guiY, guiX + WIDTH, guiY + HEIGHT, BG);
+        drawRect(guiX, guiY, guiX + SIDEBAR, guiY + HEIGHT, PANEL);
+        drawRect(guiX + SIDEBAR, guiY, guiX + WIDTH, guiY + CONTENT_TOP, BAR);
 
-        int i = 0;
-        for (Module m : VapeVlite.MODULES.getModules()) {
-            int y = moduleTop + i * 42;
-            if (y >= panelTop + 62 && y <= panelTop + h - 42) {
-                buttonList.add(new GuiButton(1000 + i, listX, y, listW, 34, m.getName()));
+        // Sidebar.
+        drawString(fontRendererObj, "VapeVlite", guiX + 8, guiY + 8, ACCENT);
+        drawString(fontRendererObj, "COMBAT", guiX + 8, guiY + 39, TEXT);
+        drawRect(guiX + 8, guiY + 52, guiX + SIDEBAR - 8, guiY + 72,
+                isMouseOver(mouseX, mouseY, guiX + 8, guiY + 52,
+                        guiX + SIDEBAR - 8, guiY + 72) ? HOVER : BAR);
+        drawString(fontRendererObj, "combat", guiX + 16, guiY + 58, ACCENT);
+
+        // Module column.
+        int mx = guiX + SIDEBAR + 10;
+        int my = guiY + CONTENT_TOP + 8 - moduleScroll;
+        int moduleIndex = 0;
+        for (Module module : VapeVlite.MODULES.getModules()) {
+            if (my + 18 >= guiY + CONTENT_TOP && my <= guiY + HEIGHT - 6) {
+                boolean hover = isMouseOver(mouseX, mouseY, mx, my, mx + 100, my + 18);
+                int base = module == selected ? HOVER : (hover ? BAR : BG);
+                drawRect(mx, my, mx + 100, my + 18, base);
+                if (module == selected) {
+                    drawRect(mx, my, mx + 2, my + 18, ACCENT);
+                }
+                drawString(fontRendererObj, module.getName(), mx + 7, my + 5,
+                        module == selected ? TEXT : DIM);
+                drawString(fontRendererObj, module.isEnabled() ? "●" : "○",
+                        mx + 88, my + 5, module.isEnabled() ? ACCENT : DIM);
             }
-            i++;
+            moduleIndex++;
+            my += 21;
         }
 
+        // Options column.
+        int ox = guiX + 220;
+        int oy = guiY + CONTENT_TOP + 8 - optionsScroll;
         if (selected != null) {
-            buttonList.add(new GuiButton(2000, optX, panelTop + 58, 86, 24, selected.isEnabled() ? "ON" : "OFF"));
-            buttonList.add(new GuiButton(2001, optX + 92, panelTop + 58, 112, 24, listening ? "PRESS KEY" : keyName(selected.getKeybind())));
-            buttonList.add(new GuiButton(2002, optX + 210, panelTop + 58, 90, 24, "SAVE"));
+            drawString(fontRendererObj, selected.getName(), ox, guiY + 8, TEXT);
+            drawString(fontRendererObj, "SETTINGS", guiX + 326, guiY + 8, DIM);
 
-            int y = panelTop + 104;
-            for (int s = 0; s < selected.getSettings().size(); s++) {
-                Setting<?> setting = selected.getSettings().get(s);
-                if (y > panelTop + h - 34) break;
-                if (setting instanceof BooleanSetting) {
-                    buttonList.add(new GuiButton(3000 + s, optX, y, optW, 26,
-                            setting.getId() + "  " + (((BooleanSetting)setting).getValue() ? "ON" : "OFF")));
-                } else {
-                    buttonList.add(new GuiButton(4000 + s * 2, optX, y, 28, 26, "-"));
-                    buttonList.add(new GuiButton(4001 + s * 2, optX + optW - 28, y, 28, 26, "+"));
+            for (int i = 0; i < selected.getSettings().size(); i++) {
+                Setting<?> setting = selected.getSettings().get(i);
+                if (oy + 18 >= guiY + CONTENT_TOP && oy <= guiY + HEIGHT - 5) {
+                    drawSetting(mouseX, mouseY, setting, ox, oy);
                 }
-                y += 34;
+                oy += 22;
             }
+        }
+
+        if (listening) {
+            drawRect(guiX + 8, guiY + HEIGHT - 24, guiX + SIDEBAR - 8,
+                    guiY + HEIGHT - 8, HOVER);
+            drawString(fontRendererObj, "Press key...", guiX + 16,
+                    guiY + HEIGHT - 19, ACCENT);
+        }
+
+        super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    private void drawSetting(int mouseX, int mouseY, Setting<?> setting, int x, int y) {
+        boolean hover = isMouseOver(mouseX, mouseY, x, y, x + 170, y + 18);
+        if (hover) drawRect(x, y, x + 170, y + 18, BAR);
+
+        drawString(fontRendererObj, setting.getId(), x + 5, y + 5, TEXT);
+
+        if (setting instanceof BooleanSetting) {
+            boolean enabled = ((BooleanSetting) setting).getValue();
+            drawRect(x + 145, y + 6, x + 164, y + 12, enabled ? ACCENT : DIM);
+            drawString(fontRendererObj, enabled ? "ON" : "OFF", x + 121, y + 5,
+                    enabled ? ACCENT : DIM);
+        } else if (setting instanceof NumberSetting) {
+            NumberSetting number = (NumberSetting) setting;
+            String value = format(number.getValue());
+            drawString(fontRendererObj, value, x + 138, y + 5, ACCENT);
+            drawString(fontRendererObj, "‹", x + 122, y + 5, DIM);
+            drawString(fontRendererObj, "›", x + 163, y + 5, DIM);
         }
     }
 
     @Override
-    protected void actionPerformed(GuiButton b) throws IOException {
-        if (b.id >= 1000 && b.id < 2000) {
-            int idx = b.id - 1000;
-            if (idx < VapeVlite.MODULES.getModules().size()) selected = VapeVlite.MODULES.getModules().get(idx);
-            rebuild(); return;
-        }
-        if (selected == null) return;
-        if (b.id == 2000) { selected.toggle(); VapeVlite.save(); rebuild(); return; }
-        if (b.id == 2001) { listening = true; return; }
-        if (b.id == 2002) { VapeVlite.save(); return; }
-        if (b.id >= 3000 && b.id < 4000) {
-            int idx = b.id - 3000;
-            if (idx < selected.getSettings().size()) {
-                Setting<?> s = selected.getSettings().get(idx);
-                if (s instanceof BooleanSetting) ((BooleanSetting)s).toggle();
-                VapeVlite.save(); rebuild();
+    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        super.mouseClicked(mouseX, mouseY, mouseButton);
+        if (mouseButton != 0 || selected == null) return;
+
+        int mx = guiX + SIDEBAR + 10;
+        int my = guiY + CONTENT_TOP + 8 - moduleScroll;
+        for (Module module : VapeVlite.MODULES.getModules()) {
+            if (isMouseOver(mouseX, mouseY, mx, my, mx + 100, my + 18)) {
+                selected = module;
+                optionsScroll = 0;
+                return;
             }
-            return;
+            my += 21;
         }
-        if (b.id >= 4000 && b.id < 5000) {
-            int raw = b.id - 4000;
-            int idx = raw / 2;
-            if (idx < selected.getSettings().size() && selected.getSettings().get(idx) instanceof NumberSetting) {
-                NumberSetting n = (NumberSetting)selected.getSettings().get(idx);
-                if ((raw & 1) == 0) n.decrement(); else n.increment();
-                VapeVlite.save(); rebuild();
+
+        int ox = guiX + 220;
+        int oy = guiY + CONTENT_TOP + 8 - optionsScroll;
+        for (Setting<?> setting : selected.getSettings()) {
+            if (isMouseOver(mouseX, mouseY, ox, oy, ox + 170, oy + 18)) {
+                if (setting instanceof BooleanSetting) {
+                    ((BooleanSetting) setting).toggle();
+                    VapeVlite.save();
+                } else if (setting instanceof NumberSetting) {
+                    NumberSetting number = (NumberSetting) setting;
+                    if (mouseX < ox + 145) number.decrement();
+                    else number.increment();
+                    VapeVlite.save();
+                }
+                return;
             }
+            oy += 22;
         }
     }
 
@@ -107,77 +167,58 @@ public class VapeGui extends GuiScreen {
         if (listening && selected != null) {
             selected.setKeybind(keyCode == Keyboard.KEY_ESCAPE ? Keyboard.KEY_NONE : keyCode);
             listening = false;
-            VapeVlite.save(); rebuild(); return;
+            VapeVlite.save();
+            return;
         }
-        if (keyCode == Keyboard.KEY_ESCAPE) { VapeVlite.save(); mc.displayGuiScreen(null); return; }
+
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            VapeVlite.save();
+            mc.displayGuiScreen(null);
+            return;
+        }
+
         super.keyTyped(typedChar, keyCode);
     }
 
     @Override
     public void handleMouseInput() throws IOException {
         super.handleMouseInput();
-        int wheel = org.lwjgl.input.Mouse.getDWheel();
-        if (wheel != 0) {
-            scroll -= wheel > 0 ? 24 : -24;
-            int max = Math.max(0, VapeVlite.MODULES.getModules().size() * 42 - 300);
-            scroll = Math.max(0, Math.min(max, scroll));
-            rebuild();
+        int wheel = Mouse.getDWheel();
+        if (wheel == 0) return;
+
+        if (Mouse.getX() >= guiX * 2 && Mouse.getX() <= (guiX + WIDTH) * 2) {
+            if (wheel > 0) {
+                moduleScroll = Math.max(0, moduleScroll - 21);
+                optionsScroll = Math.max(0, optionsScroll - 22);
+            } else {
+                moduleScroll = Math.min(maxModuleScroll(), moduleScroll + 21);
+                optionsScroll = Math.min(maxOptionsScroll(), optionsScroll + 22);
+            }
         }
     }
-
-    @Override public void onGuiClosed() { VapeVlite.save(); }
 
     @Override
-    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        drawDefaultBackground();
-        int w = 720, h = 430;
-        int x = width / 2 - w / 2, y = height / 2 - h / 2;
-        drawRect(x, y, x + w, y + h, BG);
-        drawRect(x, y, x + 145, y + h, PANEL);
-        drawRect(x + 145, y, x + w, y + 48, 0xF216171A);
-
-        drawString(fontRendererObj, "VapeVlite", x + 18, y + 18, GOLD);
-        drawString(fontRendererObj, "COMBAT", x + 18, y + 48, 0xFF777777);
-        drawString(fontRendererObj, selected == null ? "Modules" : selected.getName(), x + 160, y + 18, 0xFFFFFFFF);
-        drawString(fontRendererObj, "SETTINGS", x + 400, y + 18, 0xFF888888);
-
-        int i = 0;
-        for (Module m : VapeVlite.MODULES.getModules()) {
-            int my = y + 72 + i * 42 - scroll;
-            if (my >= y + 55 && my < y + h - 10) {
-                drawRect(x + 159, my, x + 369, my + 34, m == selected ? CARD_ON : CARD);
-                drawString(fontRendererObj, m.getName(), x + 171, my + 12, m == selected ? GOLD : 0xFFD0D0D0);
-                drawString(fontRendererObj, m.isEnabled() ? "ON" : "OFF", x + 335, my + 12, m.isEnabled() ? GOLD : 0xFF777777);
-            }
-            i++;
-        }
-
-        if (selected != null) {
-            int optX = x + 383;
-            int optY = y + 104;
-            for (Setting<?> s : selected.getSettings()) {
-                if (optY > y + h - 30) break;
-                drawString(fontRendererObj, s.getId(), optX + 6, optY + 9, 0xFFD0D0D0);
-                if (s instanceof BooleanSetting) {
-                    boolean on = ((BooleanSetting)s).getValue();
-                    drawString(fontRendererObj, on ? "ON" : "OFF", optX + 268, optY + 9, on ? GOLD : 0xFF777777);
-                } else {
-                    drawString(fontRendererObj, value(s), optX + 235, optY + 9, GOLD);
-                }
-                optY += 34;
-            }
-        }
-        if (listening) drawString(fontRendererObj, "Press a key...", x + 500, y + h - 25, GOLD);
-        super.drawScreen(mouseX, mouseY, partialTicks);
+    public void onGuiClosed() {
+        VapeVlite.save();
     }
 
-    private String value(Setting<?> s) {
-        if (s instanceof NumberSetting) {
-            double d = ((NumberSetting)s).getValue();
-            return d == Math.rint(d) ? Integer.toString((int)d) : String.format(Locale.US, "%.2f", d);
-        }
-        return String.valueOf(s.getValue());
+    private int maxModuleScroll() {
+        int count = VapeVlite.MODULES.getModules().size();
+        return Math.max(0, count * 21 - (HEIGHT - CONTENT_TOP - 10));
     }
 
-    private String keyName(int key) { return key <= 0 ? "NONE" : Keyboard.getKeyName(key); }
+    private int maxOptionsScroll() {
+        if (selected == null) return 0;
+        return Math.max(0, selected.getSettings().size() * 22 - (HEIGHT - CONTENT_TOP - 10));
+    }
+
+    private static boolean isMouseOver(int mouseX, int mouseY,
+                                       int left, int top, int right, int bottom) {
+        return mouseX > left && mouseX < right && mouseY > top && mouseY < bottom;
+    }
+
+    private static String format(double value) {
+        if (value == Math.rint(value)) return Integer.toString((int) value);
+        return String.format(Locale.US, "%.2f", value);
+    }
 }
