@@ -23,7 +23,7 @@ public class FastPlace extends Module {
     private Field rightClickDelayField;
 
     public FastPlace() {
-        super("FastPlace", Category.COMBAT);
+        super("FastPlace", Category.WORLD);
         addSetting(cpsMin);
         addSetting(cpsMax);
         addSetting(holdingBlock);

@@ -17,7 +17,7 @@ public class AutoTool extends Module {
     private long lastSwitch;
 
     public AutoTool() {
-        super("Auto Tool", Category.COMBAT);
+        super("Auto Tool", Category.WORLD);
         addSetting(delay);
     }
 
