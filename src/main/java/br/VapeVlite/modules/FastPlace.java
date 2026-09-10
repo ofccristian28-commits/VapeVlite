@@ -2,7 +2,7 @@ package br.vapevlite.modules;
 
 import br.vapevlite.Category;
 import br.vapevlite.Module;
-import br.vapevlite.settings.NumberSetting;
+import br.vapevlite.NumberSetting;
 import net.minecraft.client.Minecraft;
 
 import java.lang.reflect.Field;
@@ -17,7 +17,7 @@ public class FastPlace extends Module {
     private Field rightClickDelayTimer;
 
     public FastPlace() {
-        super("FastPlace", Category.PLAYER);
+        super("FastPlace", Category.COMBAT);
         addSetting(delay);
 
         try {
@@ -41,13 +41,11 @@ public class FastPlace extends Module {
 
         try {
             int wanted = delay.getValue().intValue();
-
             int current = rightClickDelayTimer.getInt(mc);
 
             if (current > wanted) {
                 rightClickDelayTimer.setInt(mc, wanted);
             }
-
         } catch (Exception ignored) {
         }
     }
