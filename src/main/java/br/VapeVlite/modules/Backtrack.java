@@ -155,12 +155,6 @@ public class Backtrack extends Module {
         return low + (long)random.nextInt((int)(high - low + 1L));
     }
 
-    @SubscribeEvent
-    public void onPacket(Object ignored) {
-        // Packet hooks are intentionally not copied from the source client.
-        // The active historical-position attack is performed in the client tick below.
-    }
-
     public void attackAtBacktrack(EntityLivingBase target) {
         Minecraft mc = Minecraft.getMinecraft();
         if (!isEnabled() || target == null || target.isDead || mc.thePlayer == null) return;
