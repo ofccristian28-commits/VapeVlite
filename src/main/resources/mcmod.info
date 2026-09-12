@@ -1,0 +1,16 @@
+[
+  {
+    "modid": "vapevlite",
+    "name": "VapeVlite",
+    "description": "VapeVlite client for Minecraft 1.8.9.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "https://github.com/ofccristian28-commits/VapeVlite",
+    "updateUrl": "",
+    "authorList": ["VapeVlite"],
+    "credits": "Skilled Client",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]
