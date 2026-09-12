@@ -47,6 +47,11 @@ import me.vene.skilled.values.StringValue;
     }
     
     public void setKey(final int key) {
+        if (key != 0) {
+            for (final Module mod : ModuleManager.getModules()) {
+                if (mod != this && mod.getKey() == key) mod.key = 0;
+            }
+        }
         this.key = key;
     }
     
