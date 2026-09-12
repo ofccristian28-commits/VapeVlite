@@ -165,7 +165,7 @@ public class Backtrack extends Module {
             if (!(o instanceof EntityLivingBase)) continue;
             EntityLivingBase e = (EntityLivingBase)o;
             if (e == mc.thePlayer || e.isDead) continue;
-            if (name.equals(e.getDisplayNameString())) {
+            if (name.equals(e.getName())) {
                 target = e;
                 lastAttack = now;
                 return;
@@ -252,7 +252,7 @@ public class Backtrack extends Module {
         posCache.clear();
     }
 
-    private void processPacketSilent(Packet<?> packet) {
+    private void processPacketSilent(Packet packet) {
         try {
             if (mc.getNetHandler() != null) packet.processPacket(mc.getNetHandler());
         } catch (Exception ignored) {}
