@@ -1,0 +1,55 @@
+name: Build VapeVlite
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '4.10.3'
+
+      - name: Build Forge 1.8.9
+        run: gradle build --no-daemon
+
+      - name: List build output
+        run: |
+          echo "Build output:"
+          find build -maxdepth 3 -type f -name '*.jar' -print
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VapeVlite-1.8.9
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: vapevlite-${{ github.run_number }}
+          name: VapeVlite 1.8.9 Build ${{ github.run_number }}
+          files: build/libs/*.jar
+          generate_release_notes: false
