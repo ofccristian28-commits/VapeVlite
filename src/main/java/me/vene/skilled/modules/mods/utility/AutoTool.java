@@ -31,13 +31,13 @@ public class AutoTool extends Module {
             if (pos == null) return;
             net.minecraft.block.state.IBlockState state = mc.theWorld.getBlockState(pos);
             ItemStack current = mc.thePlayer.getHeldItem();
-            float bestSpeed = current == null ? 0.0f : current.getStrVsBlock(state);
+            float bestSpeed = current == null ? 0.0f : current.getStrVsBlock(state.getBlock());
             int bestSlot = mc.thePlayer.inventory.currentItem;
 
             for (int slot = 0; slot < 9; slot++) {
                 ItemStack stack = mc.thePlayer.inventory.getStackInSlot(slot);
                 if (stack == null) continue;
-                float speed = stack.getStrVsBlock(state);
+                float speed = stack.getStrVsBlock(state.getBlock());
                 if (speed > bestSpeed + 0.01f) {
                     bestSpeed = speed;
                     bestSlot = slot;

@@ -47,7 +47,7 @@ public class Backtrack extends Module {
         ScheduledFuture<?> future = ctx.executor().schedule(new Runnable() {
             @Override public void run() {
                 try { ctx.fireChannelRead(retained); }
-                finally { scheduled.removeIf(k -> k.isDone() || k.isCancelled()); }
+                finally { scheduled.keySet().removeIf(k -> k.isDone() || k.isCancelled()); }
             }
         }, delayMs, TimeUnit.MILLISECONDS);
         scheduled.put(future, Boolean.TRUE);
